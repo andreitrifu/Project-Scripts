@@ -1,11 +1,12 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class SoldierHeatMapVisual : MonoBehaviour
+public class SnipersAIHeatMapVisual : MonoBehaviour
 {
-    private Grid soldierGrid;
+    private Grid snipersGridAI;
     private Mesh mesh;
     private bool updateMesh;
-    public float gridTransparency = 0.5f;
 
     private void Awake()
     {
@@ -13,15 +14,15 @@ public class SoldierHeatMapVisual : MonoBehaviour
         GetComponent<MeshFilter>().mesh = mesh;
     }
 
-    public void SetSoldierGrid(Grid soldierGrid)
+    public void SetSnipersGridAI(Grid snipersGridAI)
     {
-        this.soldierGrid = soldierGrid;
-        UpdateSoldierHeatMapVisual();
+        this.snipersGridAI = snipersGridAI;
+        UpdateSnipersHeatMapVisual();
 
-        soldierGrid.OnGridValueChanged += SoldierGrid_OnGridValueChanged;
+        snipersGridAI.OnGridValueChanged += SnipersGrid_OnGridValueChanged;
     }
 
-    private void SoldierGrid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
+    private void SnipersGrid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
     {
         updateMesh = true;
     }
@@ -31,29 +32,29 @@ public class SoldierHeatMapVisual : MonoBehaviour
         if (updateMesh)
         {
             updateMesh = false;
-            UpdateSoldierHeatMapVisual();
+            UpdateSnipersHeatMapVisual();
         }
     }
 
-    private void UpdateSoldierHeatMapVisual()
+    private void UpdateSnipersHeatMapVisual()
     {
-        MeshUtils.CreateEmptyMeshArrays(soldierGrid.GetWidth() * soldierGrid.GetHeight(), out Vector3[] vertices, out Vector2[] uv, out int[] triangles);
+        MeshUtils.CreateEmptyMeshArrays(snipersGridAI.GetWidth() * snipersGridAI.GetHeight(), out Vector3[] vertices, out Vector2[] uv, out int[] triangles);
 
-        for (int x = 0; x < soldierGrid.GetWidth(); x++)
+        for (int x = 0; x < snipersGridAI.GetWidth(); x++)
         {
-            for (int y = 0; y < soldierGrid.GetHeight(); y++)
+            for (int y = 0; y < snipersGridAI.GetHeight(); y++)
             {
-                int index = x * soldierGrid.GetHeight() + y;
-                Vector3 quadSize = new Vector3(1, 1) * soldierGrid.GetCellSize();
+                int index = x * snipersGridAI.GetHeight() + y;
+                Vector3 quadSize = new Vector3(1, 1) * snipersGridAI.GetCellSize();
 
-                int soldierValue = soldierGrid.GetValue(x, y);
-                float soldierValueNormalized = (float)soldierValue / Grid.HEAT_MAP_MAX_VALUE;
+                int snipersValue = snipersGridAI.GetValue(x, y);
+                float snipersValueNormalized = (float)snipersValue / Grid.HEAT_MAP_MAX_VALUE;
 
-                Color color = new Color(1f, 0f, 0f, gridTransparency); // Red color for soldiers
+                Color color = new Color(1f, 0f, 0f, 0.5f);
 
-                Vector2 soldierValueUV = new Vector2(soldierValueNormalized, 0f);
+                Vector2 snipersValueUV = new Vector2(snipersValueNormalized, 0f);
 
-                UpdateHeatMapVisual(vertices, uv, triangles, index, soldierGrid.GetWorldPosition(x, y) + quadSize * .5f, quadSize, soldierValueUV, soldierValueUV, color);
+                UpdateHeatMapVisual(vertices, uv, triangles, index, snipersGridAI.GetWorldPosition(x, y) + quadSize * .5f, quadSize, snipersValueUV, snipersValueUV, color);
             }
         }
 

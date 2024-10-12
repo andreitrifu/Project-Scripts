@@ -1,8 +1,10 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class SoldierHeatMapVisual : MonoBehaviour
+public class DamageHeatMapVisual : MonoBehaviour
 {
-    private Grid soldierGrid;
+    private Grid damageGrid;
     private Mesh mesh;
     private bool updateMesh;
     public float gridTransparency = 0.5f;
@@ -13,15 +15,15 @@ public class SoldierHeatMapVisual : MonoBehaviour
         GetComponent<MeshFilter>().mesh = mesh;
     }
 
-    public void SetSoldierGrid(Grid soldierGrid)
+    public void SetDamageGrid(Grid damageGrid)
     {
-        this.soldierGrid = soldierGrid;
-        UpdateSoldierHeatMapVisual();
+        this.damageGrid = damageGrid;
+        UpdateDamageHeatMapVisual();
 
-        soldierGrid.OnGridValueChanged += SoldierGrid_OnGridValueChanged;
+        damageGrid.OnGridValueChanged += DamageGrid_OnGridValueChanged;
     }
 
-    private void SoldierGrid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
+    private void DamageGrid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
     {
         updateMesh = true;
     }
@@ -31,29 +33,29 @@ public class SoldierHeatMapVisual : MonoBehaviour
         if (updateMesh)
         {
             updateMesh = false;
-            UpdateSoldierHeatMapVisual();
+            UpdateDamageHeatMapVisual();
         }
     }
 
-    private void UpdateSoldierHeatMapVisual()
+    private void UpdateDamageHeatMapVisual()
     {
-        MeshUtils.CreateEmptyMeshArrays(soldierGrid.GetWidth() * soldierGrid.GetHeight(), out Vector3[] vertices, out Vector2[] uv, out int[] triangles);
+        MeshUtils.CreateEmptyMeshArrays(damageGrid.GetWidth() * damageGrid.GetHeight(), out Vector3[] vertices, out Vector2[] uv, out int[] triangles);
 
-        for (int x = 0; x < soldierGrid.GetWidth(); x++)
+        for (int x = 0; x < damageGrid.GetWidth(); x++)
         {
-            for (int y = 0; y < soldierGrid.GetHeight(); y++)
+            for (int y = 0; y < damageGrid.GetHeight(); y++)
             {
-                int index = x * soldierGrid.GetHeight() + y;
-                Vector3 quadSize = new Vector3(1, 1) * soldierGrid.GetCellSize();
+                int index = x * damageGrid.GetHeight() + y;
+                Vector3 quadSize = new Vector3(1, 1) * damageGrid.GetCellSize();
 
-                int soldierValue = soldierGrid.GetValue(x, y);
-                float soldierValueNormalized = (float)soldierValue / Grid.HEAT_MAP_MAX_VALUE;
+                int damageValue = damageGrid.GetValue(x, y);
+                float damageValueNormalized = (float)damageValue / Grid.HEAT_MAP_MAX_VALUE;
 
-                Color color = new Color(1f, 0f, 0f, gridTransparency); // Red color for soldiers
+                Color color = new Color(1f, 0f, 0f, gridTransparency);
 
-                Vector2 soldierValueUV = new Vector2(soldierValueNormalized, 0f);
+                Vector2 damageValueUV = new Vector2(damageValueNormalized, 0f);
 
-                UpdateHeatMapVisual(vertices, uv, triangles, index, soldierGrid.GetWorldPosition(x, y) + quadSize * .5f, quadSize, soldierValueUV, soldierValueUV, color);
+                UpdateHeatMapVisual(vertices, uv, triangles, index, damageGrid.GetWorldPosition(x, y) + quadSize * .5f, quadSize, damageValueUV, damageValueUV, color);
             }
         }
 

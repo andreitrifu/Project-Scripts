@@ -30,11 +30,15 @@ public class Health : MonoBehaviour
             if (currentX != previousX || currentY != previousY)
             {
                 // Remove value from the previous position
-                testing.gridSoldiers.AddValue(previousX, previousY, -5);
-
+                testing.gridSoldiers.AddValue(previousPosition, -10, 3,3);//
+                if (tag == "Team1")
+                    testing.gridSoldiersYou.AddValue(previousPosition, -10, 3, 3);
+                else testing.gridSoldiersAI.AddValue(previousPosition, -10, 3, 3);
                 // Add value to the current position
-                testing.gridSoldiers.AddValue(currentX, currentY, 5);
-
+                testing.gridSoldiers.AddValue(transform.position, 10,3,3);
+                if (tag == "Team1")
+                    testing.gridSoldiersYou.AddValue(transform.position, 10, 3, 3);
+                else testing.gridSoldiersAI.AddValue(transform.position, 10, 3, 3);
                 // Update the previous position
                 previousPosition = transform.position;
             }
@@ -45,9 +49,16 @@ public class Health : MonoBehaviour
     {
         currentHealth -= amount;
         currentHealthVar = currentHealth;
+        testing.gridDamage.GetXY(transform.position, out int currentX, out int currentY);
+        testing.gridDamage.AddValue(currentX, currentY, 2);
         if (currentHealth <= 0)
         {
             // Call the Die method from the Testing component
+            testing.gridSoldiers.AddValue(transform.position, -10, 3, 3);
+
+            if (tag == "Team1")
+                testing.gridSoldiersYou.AddValue(transform.position, -10, 3, 3);
+            else testing.gridSoldiersAI.AddValue(transform.position, -10, 3, 3);
             Die();
         }
     }
@@ -56,10 +67,6 @@ public class Health : MonoBehaviour
     {
         // Get the position of the object in world space
         Vector3 deathPosition = transform.position;
-
-        // Update the grid with the death information
-        testing.grid.AddValue(deathPosition, 10, 3, 3);
-
         Destroy(gameObject);
     }
 }

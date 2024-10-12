@@ -4,31 +4,37 @@ using System.Collections.Generic;
 using System.Drawing;
 using UnityEngine;
 
-public class HeatMapVisual : MonoBehaviour {
+public class HeatMapVisual : MonoBehaviour
+{
 
     private Grid grid;
     private Mesh mesh;
     private bool updateMesh;
 
-    private void Awake() {
+    private void Awake()
+    {
         mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
     }
 
-    public void SetGrid(Grid grid) {
+    public void SetGrid(Grid grid)
+    {
         this.grid = grid;
         UpdateHeatMapVisual();
 
         grid.OnGridValueChanged += Grid_OnGridValueChanged;
     }
 
-    private void Grid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e) {
+    private void Grid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
+    {
         //UpdateHeatMapVisual();
         updateMesh = true;
     }
 
-    private void LateUpdate() {
-        if (updateMesh) {
+    private void LateUpdate()
+    {
+        if (updateMesh)
+        {
             updateMesh = false;
             UpdateHeatMapVisual();
         }

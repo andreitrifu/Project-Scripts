@@ -1,11 +1,12 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
-public class SoldierHeatMapVisual : MonoBehaviour
+public class MachineGunsYouHeat : MonoBehaviour
 {
-    private Grid soldierGrid;
+    private Grid machinegunsGridYou;
     private Mesh mesh;
     private bool updateMesh;
-    public float gridTransparency = 0.5f;
 
     private void Awake()
     {
@@ -13,15 +14,15 @@ public class SoldierHeatMapVisual : MonoBehaviour
         GetComponent<MeshFilter>().mesh = mesh;
     }
 
-    public void SetSoldierGrid(Grid soldierGrid)
+    public void SetMachinegunsGridYou(Grid machinegunsGridYou)
     {
-        this.soldierGrid = soldierGrid;
-        UpdateSoldierHeatMapVisual();
+        this.machinegunsGridYou = machinegunsGridYou;
+        UpdateMachinegunsHeatMapVisual();
 
-        soldierGrid.OnGridValueChanged += SoldierGrid_OnGridValueChanged;
+        machinegunsGridYou.OnGridValueChanged += MachinegunsGrid_OnGridValueChanged;
     }
 
-    private void SoldierGrid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
+    private void MachinegunsGrid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
     {
         updateMesh = true;
     }
@@ -31,45 +32,44 @@ public class SoldierHeatMapVisual : MonoBehaviour
         if (updateMesh)
         {
             updateMesh = false;
-            UpdateSoldierHeatMapVisual();
+            UpdateMachinegunsHeatMapVisual();
         }
     }
 
-    private void UpdateSoldierHeatMapVisual()
+    private void UpdateMachinegunsHeatMapVisual()
     {
-        MeshUtils.CreateEmptyMeshArrays(soldierGrid.GetWidth() * soldierGrid.GetHeight(), out Vector3[] vertices, out Vector2[] uv, out int[] triangles);
+        MeshUtils.CreateEmptyMeshArrays(machinegunsGridYou.GetWidth() * machinegunsGridYou.GetHeight(), out Vector3[] vertices, out Vector2[] uv, out int[] triangles);
 
-        for (int x = 0; x < soldierGrid.GetWidth(); x++)
+        for (int x = 0; x < machinegunsGridYou.GetWidth(); x++)
         {
-            for (int y = 0; y < soldierGrid.GetHeight(); y++)
+            for (int y = 0; y < machinegunsGridYou.GetHeight(); y++)
             {
-                int index = x * soldierGrid.GetHeight() + y;
-                Vector3 quadSize = new Vector3(1, 1) * soldierGrid.GetCellSize();
+                int index = x * machinegunsGridYou.GetHeight() + y;
+                Vector3 quadSize = new Vector3(1, 1) * machinegunsGridYou.GetCellSize();
 
-                int soldierValue = soldierGrid.GetValue(x, y);
-                float soldierValueNormalized = (float)soldierValue / Grid.HEAT_MAP_MAX_VALUE;
+                int machinegunsValue = machinegunsGridYou.GetValue(x, y);
+                float machinegunsValueNormalized = (float)machinegunsValue / Grid.HEAT_MAP_MAX_VALUE;
 
-                Color color = new Color(1f, 0f, 0f, gridTransparency); // Red color for soldiers
+                Color color = new Color(1f, 0f, 0f, 0.5f);
 
-                Vector2 soldierValueUV = new Vector2(soldierValueNormalized, 0f);
+                Vector2 machinegunsValueUV = new Vector2(machinegunsValueNormalized, 0f);
 
-                UpdateHeatMapVisual(vertices, uv, triangles, index, soldierGrid.GetWorldPosition(x, y) + quadSize * .5f, quadSize, soldierValueUV, soldierValueUV, color);
+                UpdateHeatMapVisual(vertices, uv, triangles, index, machinegunsGridYou.GetWorldPosition(x, y) + quadSize * .5f, quadSize, machinegunsValueUV, machinegunsValueUV, color);
             }
         }
-
         mesh.vertices = vertices;
         mesh.uv = uv;
         mesh.triangles = triangles;
     }
-
     private void UpdateHeatMapVisual(Vector3[] vertices, Vector2[] uv, int[] triangles, int index, Vector3 pos, Vector3 quadSize, Vector2 uv00, Vector2 uv11, Color color)
     {
+        #region ints
         int vIndex = index * 4;
         int vIndex0 = vIndex;
         int vIndex1 = vIndex + 1;
         int vIndex2 = vIndex + 2;
         int vIndex3 = vIndex + 3;
-
+        #endregion ints
         vertices[vIndex0] = pos + new Vector3(-quadSize.x, 0, quadSize.y) * 0.5f;
         vertices[vIndex1] = pos + new Vector3(-quadSize.x, 0, -quadSize.y) * 0.5f;
         vertices[vIndex2] = pos + new Vector3(quadSize.x, 0, -quadSize.y) * 0.5f;
@@ -93,3 +93,4 @@ public class SoldierHeatMapVisual : MonoBehaviour
         triangles[tIndex + 5] = vIndex2;
     }
 }
+
