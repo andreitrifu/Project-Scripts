@@ -1,5 +1,4 @@
-using UnityEngine;
-
+using UnityEngine;//
 public class ScaleAndAnchorController : MonoBehaviour
 {
     private static bool isScaled = false;
