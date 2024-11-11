@@ -1,4 +1,4 @@
-using UnityEngine;//
+using UnityEngine;
 using UnityEngine.UI;
 
 public class ControlArea : MonoBehaviour
@@ -31,60 +31,75 @@ public class ControlArea : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // Check if the timer has reached the interval
-        if (timer >= timeInterval && (currentProgress1 < maxProgress && currentProgress2 < maxProgress))
+        UpdateTimer();
+
+        if (timer >= timeInterval && !IsAreaConquered())
         {
-            // Reset the timer
             timer = 0.0f;
-
-            // Search for units within the search radius
-            Collider[] colliders = Physics.OverlapSphere(transform.position, searchRadius);
-
-            team1Count = 0;
-            team2Count = 0;
-
-            foreach (Collider collider in colliders)
-            {
-                if (collider.CompareTag("Team1"))
-                {
-                    team1Count++;
-                }
-                else if (collider.CompareTag("Team2"))
-                {
-                    team2Count++;
-                }
-            }
-
-            if (team1Count > 0 && team2Count == 0)
-            {
-                currentProgress1 += progressPerSecond;
-                UpdateUIProgress();
-            }
-            else if (team2Count > 0 && team1Count == 0)
-            {
-                currentProgress2 += progressPerSecond;
-                UpdateUIProgress();
-            }
+            UpdateTeamCounts();
+            UpdateProgress();
         }
-        timer += Time.deltaTime;
 
+        CheckConquerStatus();
+    }
+
+    private void UpdateTimer()
+    {
+        timer += Time.deltaTime;
+    }
+
+    private bool IsAreaConquered()
+    {
+        return currentProgress1 >= maxProgress || currentProgress2 >= maxProgress;
+    }
+
+    private void UpdateTeamCounts()
+    {
+        team1Count = 0;
+        team2Count = 0;
+
+        Collider[] colliders = Physics.OverlapSphere(transform.position, searchRadius);
+
+        foreach (Collider collider in colliders)
+        {
+            if (collider.CompareTag("Team1")) team1Count++;
+            else if (collider.CompareTag("Team2")) team2Count++;
+        }
+    }
+
+    private void UpdateProgress()
+    {
+        if (team1Count > 0 && team2Count == 0)
+        {
+            currentProgress1 += progressPerSecond;
+            UpdateUIProgress();
+        }
+        else if (team2Count > 0 && team1Count == 0)
+        {
+            currentProgress2 += progressPerSecond;
+            UpdateUIProgress();
+        }
+    }
+
+    private void CheckConquerStatus()
+    {
         if (currentProgress1 >= maxProgress && !team1Taken)
         {
-            // Team 1 conquered the area
-            Debug.Log("Team 1 conquered the area!");
-            team1ProgressBar.value = 100f;
-            team1Taken = true;
-            RemoveControlPoint();
+            ConquerArea("Team 1", ref team1Taken, team1ProgressBar);
         }
 
         if (currentProgress2 >= maxProgress && !team2Taken)
         {
-            // Team 2 conquered the area
-            Debug.Log("Team 2 conquered the area!");
-            team2ProgressBar.value = 100f;
-            team2Taken = true;
-            RemoveControlPoint();
+            ConquerArea("Team 2", ref team2Taken, team2ProgressBar);
         }
+    }
+
+    private void ConquerArea(string teamName, ref bool teamTaken, Slider progressBar)
+    {
+        Debug.Log($"{teamName} conquered the area!");
+        progressBar.value = 100f;
+        teamTaken = true;
+        RemoveControlPoint();
     }
 
     private void UpdateUIProgress()
@@ -96,7 +111,7 @@ public class ControlArea : MonoBehaviour
     private void RemoveControlPoint()
     {
         // Remove the conquerable point's transform
-       // Destroy(gameObject);
+        // Destroy(gameObject);
     }
 
     private void OnDrawGizmosSelected()

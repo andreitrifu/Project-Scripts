@@ -1,4 +1,4 @@
-using System.Collections;//
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -25,48 +25,60 @@ public class DetectClosest : MonoBehaviour
 
     void Start()
     {
-        bullets = maxBullets;
-        animator = GetComponent<Animator>();
-        GameObject[] enemyObjects = GameObject.FindGameObjectsWithTag(tagToDetect);
-        allEnemies = new Transform[enemyObjects.Length];
-        for (int i = 0; i < enemyObjects.Length; i++)
-        {
-            allEnemies[i] = enemyObjects[i].transform;
-        }
-        testing = FindObjectOfType<Testing>();
-        previousPosition = transform.position;
+        Initialize();
     }
 
     void Update()
     {
         UpdateEnemyList();
-        closestEnemy = ClosestEnemy();
-        if (shootsNow || reloadsNow)
-            return;
+        closestEnemy = FindClosestEnemy();
+
+        if (shootsNow || reloadsNow) return;
 
         if (closestEnemy != null)
         {
-            float distanceToTarget = Vector3.Distance(transform.position, closestEnemy.transform.position);
-
-            if (distanceToTarget <= shootingRange && bullets > 0)
-            {
-                // Continuous shooting
-                Shoot();
-
-                // Continuous raycasting
-                RaycastToTarget();
-            }
-            else if (bullets == 0)
-            {
-                Reload();
-            }
-            if (distanceToTarget <= 120f)
-            {
-                // Rotate towards the closest enemy if within 120 meters
-                RotateTowards(closestEnemy.transform.position);
-            }
+            HandleShooting();
+            HandleRotation();
         }
 
+        HandleGridMovementBasedOnRole();
+    }
+
+    private void Initialize()
+    {
+        bullets = maxBullets;
+        animator = GetComponent<Animator>();
+        UpdateEnemyList();
+        testing = FindObjectOfType<Testing>();
+        previousPosition = transform.position;
+    }
+
+    private void HandleShooting()
+    {
+        float distanceToTarget = Vector3.Distance(transform.position, closestEnemy.position);
+
+        if (distanceToTarget <= shootingRange && bullets > 0)
+        {
+            Shoot();
+        }
+        else if (bullets == 0)
+        {
+            Reload();
+        }
+    }
+
+    private void HandleRotation()
+    {
+        float distanceToTarget = Vector3.Distance(transform.position, closestEnemy.position);
+
+        if (distanceToTarget <= 120f)
+        {
+            RotateTowards(closestEnemy.position);
+        }
+    }
+
+    private void HandleGridMovementBasedOnRole()
+    {
         if (maxBullets == 8) // riflemen
         {
             HandleGridMovement(testing.gridRiflemen, testing.gridRiflemenYou, testing.gridRiflemenAI);
@@ -81,45 +93,46 @@ public class DetectClosest : MonoBehaviour
         }
     }
 
-    void HandleGridMovement(Grid mainGrid, Grid youGrid, Grid aiGrid)
+    private void HandleGridMovement(Grid mainGrid, Grid youGrid, Grid aiGrid)
     {
         mainGrid.GetXY(transform.position, out int currentX, out int currentY);
         mainGrid.GetXY(previousPosition, out int previousX, out int previousY);
 
         if (currentX != previousX || currentY != previousY)
         {
-            mainGrid.AddValue(previousPosition, -10, 3, 3);
-            if (tag == "Team1")
-                youGrid.AddValue(previousPosition, -10, 3, 3);
-            else
-                aiGrid.AddValue(previousPosition, -10, 3, 3);
-
-            mainGrid.AddValue(transform.position, 10, 3, 3);
-            if (tag == "Team1")
-                youGrid.AddValue(transform.position, 10, 3, 3);
-            else
-                aiGrid.AddValue(transform.position, 10, 3, 3);
-
+            UpdateGridPosition(mainGrid, youGrid, aiGrid, previousPosition, -10);
+            UpdateGridPosition(mainGrid, youGrid, aiGrid, transform.position, 10);
             previousPosition = transform.position;
 
-            Health healthComponent = GetComponent<Health>();
-            float currentHealth = healthComponent.currentHealthVar;
-            if (currentHealth <= 0)
-            {
-                mainGrid.AddValue(transform.position, -10, 3, 3);
-                if (tag == "Team1")
-                    youGrid.AddValue(transform.position, -10, 3, 3);
-                else
-                    aiGrid.AddValue(transform.position, -10, 3, 3);
-            }
+            CheckHealthAndRemoveFromGrid(mainGrid, youGrid, aiGrid);
         }
     }
 
-    void RaycastToTarget()
+    private void UpdateGridPosition(Grid mainGrid, Grid youGrid, Grid aiGrid, Vector3 position, int value)
+    {
+        mainGrid.AddValue(position, value, 3, 3);
+
+        if (tag == "Team1")
+            youGrid.AddValue(position, value, 3, 3);
+        else
+            aiGrid.AddValue(position, value, 3, 3);
+    }
+
+    private void CheckHealthAndRemoveFromGrid(Grid mainGrid, Grid youGrid, Grid aiGrid)
+    {
+        Health healthComponent = GetComponent<Health>();
+
+        if (healthComponent != null && healthComponent.currentHealthVar <= 0)
+        {
+            UpdateGridPosition(mainGrid, youGrid, aiGrid, transform.position, -10);
+        }
+    }
+
+    private void RaycastToTarget()
     {
         RaycastHit hit;
         Vector3 start = transform.position + Vector3.up;
-        Vector3 end = closestEnemy.transform.position + Vector3.up;
+        Vector3 end = closestEnemy.position + Vector3.up;
         Debug.DrawLine(start, end, Color.green, 0.1f);
 
         if (Physics.Linecast(start, end, out hit, groundLayer))
@@ -131,36 +144,37 @@ public class DetectClosest : MonoBehaviour
         }
     }
 
-    void UpdateEnemyList()
+    private void UpdateEnemyList()
     {
         GameObject[] enemyObjects = GameObject.FindGameObjectsWithTag(tagToDetect);
         allEnemies = new Transform[enemyObjects.Length];
+
         for (int i = 0; i < enemyObjects.Length; i++)
         {
             allEnemies[i] = enemyObjects[i].transform;
         }
     }
 
-    Transform ClosestEnemy()
+    private Transform FindClosestEnemy()
     {
-        Transform closestHere = null;
+        Transform closest = null;
         float leastDistance = Mathf.Infinity;
 
         foreach (var enemy in allEnemies)
         {
-            float distanceHere = Vector3.Distance(transform.position, enemy.transform.position);
+            float distance = Vector3.Distance(transform.position, enemy.position);
 
-            if (distanceHere < leastDistance)
+            if (distance < leastDistance)
             {
-                leastDistance = distanceHere;
-                closestHere = enemy;
+                leastDistance = distance;
+                closest = enemy;
             }
         }
 
-        return closestHere;
+        return closest;
     }
 
-    void Shoot()
+    private void Shoot()
     {
         if (bullets > 0 && !shootsNow && !reloadsNow)
         {
@@ -168,78 +182,105 @@ public class DetectClosest : MonoBehaviour
         }
     }
 
-    IEnumerator ShootCoroutine()
+    private IEnumerator ShootCoroutine()
     {
         animator.SetBool("IsShooting", true);
         shootsNow = true;
 
         if (closestEnemy != null)
         {
-            RotateTowards(closestEnemy.transform.position);
-            RaycastHit hit;
-            Vector3 start = transform.position + Vector3.up;
-            Vector3 directionToEnemy = (closestEnemy.transform.position + Vector3.up) - start;
+            RotateTowards(closestEnemy.position);
 
-            Debug.DrawRay(start, directionToEnemy.normalized * shootingRange, Color.red, 0.1f);
-
-            // Check if there is a clear line of sight to the enemy
-            if (Physics.Raycast(start, directionToEnemy, out hit, shootingRange))
+            if (IsEnemyInLineOfSight())
             {
-                if (hit.collider.gameObject == closestEnemy.gameObject)
-                {
-                    // Instantiate the projectile
-                    Rigidbody projectile = Instantiate(projectilePrefab, start, Quaternion.identity).GetComponent<Rigidbody>();
-
-                    if (projectile != null)
-                    {
-                        // Set the projectile's velocity towards the enemy
-                        projectile.velocity = directionToEnemy.normalized * projectileSpeed;
-                        bullets--;
-
-                        Debug.Log("Shot fired!");
-
-                        yield return new WaitForSeconds(betweenShots);
-                    }
-                    else
-                    {
-                        Debug.LogError("Projectile prefab is missing Rigidbody component.");
-                    }
-                }
-                else
-                {
-                    Debug.Log("Raycast hit an object other than the closest enemy.");
-                }
+                FireProjectileAtEnemy();
+                bullets--;
+                yield return new WaitForSeconds(betweenShots);
             }
             else
             {
-                Debug.Log("Raycast did not hit any object within the shooting range.");
+                Debug.Log("Enemy not in line of sight.");
             }
         }
 
         animator.SetBool("IsShooting", false);
         shootsNow = false;
     }
+    private bool IsEnemyInLineOfSight()
+    {
+        RaycastHit hit;
+        Vector3 start = transform.position + Vector3.up;
+        Vector3 directionToEnemy = (closestEnemy.position + Vector3.up) - start;
 
-    void Reload()
+        if (Physics.Raycast(start, directionToEnemy, out hit, shootingRange))
+        {
+            return hit.collider.gameObject == closestEnemy.gameObject;
+        }
+        return false;
+    }
+
+    private void FireProjectileAtEnemy()
+    {
+        Rigidbody projectile = Instantiate(projectilePrefab, transform.position + Vector3.up, Quaternion.identity).GetComponent<Rigidbody>();
+        if (projectile != null)
+        {
+            projectile.velocity = (closestEnemy.position - transform.position).normalized * projectileSpeed;
+            Debug.Log("Shot fired!");
+        }
+        else
+        {
+            Debug.LogError("Projectile prefab is missing Rigidbody component.");
+        }
+    }
+
+
+    private void AttemptRaycastAndShoot()
+    {
+        RaycastHit hit;
+        Vector3 start = transform.position + Vector3.up;
+        Vector3 directionToEnemy = (closestEnemy.position + Vector3.up) - start;
+
+        if (Physics.Raycast(start, directionToEnemy, out hit, shootingRange) && hit.collider.gameObject == closestEnemy.gameObject)
+        {
+            FireProjectile(directionToEnemy);
+        }
+    }
+
+    private void FireProjectile(Vector3 directionToEnemy)
+    {
+        Rigidbody projectile = Instantiate(projectilePrefab, transform.position + Vector3.up, Quaternion.identity).GetComponent<Rigidbody>();
+
+        if (projectile != null)
+        {
+            projectile.velocity = directionToEnemy.normalized * projectileSpeed;
+            bullets--;
+            Debug.Log("Shot fired!");
+        }
+        else
+        {
+            Debug.LogError("Projectile prefab is missing Rigidbody component.");
+        }
+    }
+
+    private void Reload()
     {
         StartCoroutine(ReloadCoroutine());
     }
 
-    IEnumerator ReloadCoroutine()
+    private IEnumerator ReloadCoroutine()
     {
         reloadsNow = true;
-        if (closestEnemy != null)
-        {
-            RotateTowards(closestEnemy.transform.position);
-        }
+        if (closestEnemy != null) RotateTowards(closestEnemy.position);
+
         animator.SetBool("IsReloading", true);
         yield return new WaitForSeconds(reloadTime);
+
         animator.SetBool("IsReloading", false);
         bullets = maxBullets;
         reloadsNow = false;
     }
 
-    void RotateTowards(Vector3 targetPosition)
+    private void RotateTowards(Vector3 targetPosition)
     {
         Vector3 direction = (targetPosition - transform.position).normalized;
         Quaternion lookRotation = Quaternion.LookRotation(new Vector3(direction.x, 0, direction.z));

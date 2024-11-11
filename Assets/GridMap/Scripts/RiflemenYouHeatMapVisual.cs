@@ -1,28 +1,29 @@
-using System.Collections;//
-using System.Collections.Generic;
 using UnityEngine;
 
-public class RiflemenYouHeatMapVisual : MonoBehaviour
+public class RiflemenYouHeat : MonoBehaviour
 {
-    private Grid riflemenGridYou;
+    private Grid riflemenYouGrid;
     private Mesh mesh;
     private bool updateMesh;
+    public float gridTransparency = 0.5f;
+    private Color riflemenColor;
 
     private void Awake()
     {
         mesh = new Mesh();
         GetComponent<MeshFilter>().mesh = mesh;
+        riflemenColor = new Color(1f, 0f, 0f, gridTransparency); // Red color for riflemen
     }
 
-    public void SetRiflemenGridYou(Grid riflemenGridYou)
+    public void SetRiflemenYouGrid(Grid riflemenYouGrid)
     {
-        this.riflemenGridYou = riflemenGridYou;
-        UpdateRiflemenHeatMapVisual();
+        this.riflemenYouGrid = riflemenYouGrid;
+        UpdateRiflemenYouHeatMapVisual();
 
-        riflemenGridYou.OnGridValueChanged += RiflemenGrid_OnGridValueChanged;
+        riflemenYouGrid.OnGridValueChanged += RiflemenGridYou_OnGridValueChanged;
     }
 
-    private void RiflemenGrid_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
+    private void RiflemenGridYou_OnGridValueChanged(object sender, Grid.OnGridValueChangedEventArgs e)
     {
         updateMesh = true;
     }
@@ -32,65 +33,112 @@ public class RiflemenYouHeatMapVisual : MonoBehaviour
         if (updateMesh)
         {
             updateMesh = false;
-            UpdateRiflemenHeatMapVisual();
+            UpdateRiflemenYouHeatMapVisual();
         }
     }
 
-    private void UpdateRiflemenHeatMapVisual()
+    private void UpdateRiflemenYouHeatMapVisual()
     {
-        MeshUtils.CreateEmptyMeshArrays(riflemenGridYou.GetWidth() * riflemenGridYou.GetHeight(), out Vector3[] vertices, out Vector2[] uv, out int[] triangles);
+        int totalCells = riflemenYouGrid.GetWidth() * riflemenYouGrid.GetHeight();
+        HeatMapMeshData meshData = new HeatMapMeshData(totalCells);
 
-        for (int x = 0; x < riflemenGridYou.GetWidth(); x++)
+        Vector3 quadSize = new Vector3(1, 1) * riflemenYouGrid.GetCellSize();
+
+        for (int x = 0; x < riflemenYouGrid.GetWidth(); x++)
         {
-            for (int y = 0; y < riflemenGridYou.GetHeight(); y++)
+            for (int y = 0; y < riflemenYouGrid.GetHeight(); y++)
             {
-                int index = x * riflemenGridYou.GetHeight() + y;
-                Vector3 quadSize = new Vector3(1, 1) * riflemenGridYou.GetCellSize(); 
+                int index = x * riflemenYouGrid.GetHeight() + y;
 
-                int riflemenValue = riflemenGridYou.GetValue(x, y);
+                int riflemenValue = riflemenYouGrid.GetValue(x, y);
                 float riflemenValueNormalized = (float)riflemenValue / Grid.HEAT_MAP_MAX_VALUE;
-
-                Color color = new Color(1f, 0f, 0f, 0.9f);
-
                 Vector2 riflemenValueUV = new Vector2(riflemenValueNormalized, 0f);
 
-                UpdateHeatMapVisual(vertices, uv, triangles, index, riflemenGridYou.GetWorldPosition(x, y) + quadSize * .5f, quadSize, riflemenValueUV, riflemenValueUV, color);
+                // Assign cell data to the mesh data array
+                meshData.cells[index] = new CellMeshData
+                {
+                    pos = riflemenYouGrid.GetWorldPosition(x, y) + quadSize * 0.5f,
+                    quadSize = quadSize,
+                    uv00 = riflemenValueUV,
+                    uv11 = riflemenValueUV,
+                    color = riflemenColor
+                };
             }
         }
 
-        mesh.vertices = vertices;
-        mesh.uv = uv;
-        mesh.triangles = triangles;
+        meshData.ApplyToMesh(mesh);
     }
 
-    private void UpdateHeatMapVisual(Vector3[] vertices, Vector2[] uv, int[] triangles, int index, Vector3 pos, Vector3 quadSize, Vector2 uv00, Vector2 uv11, Color color)
+    public struct CellMeshData
     {
-        int vIndex = index * 4;
-        int vIndex0 = vIndex;
-        int vIndex1 = vIndex + 1;
-        int vIndex2 = vIndex + 2;
-        int vIndex3 = vIndex + 3;
+        public Vector3 pos;
+        public Vector3 quadSize;
+        public Vector2 uv00;
+        public Vector2 uv11;
+        public Color color;
+    }
 
-        vertices[vIndex0] = pos + new Vector3(-quadSize.x, 0, quadSize.y) * 0.5f;
-        vertices[vIndex1] = pos + new Vector3(-quadSize.x, 0, -quadSize.y) * 0.5f;
-        vertices[vIndex2] = pos + new Vector3(quadSize.x, 0, -quadSize.y) * 0.5f;
-        vertices[vIndex3] = pos + new Vector3(quadSize.x, 0, quadSize.y) * 0.5f;
+    public struct HeatMapMeshData
+    {
+        public Vector3[] vertices;
+        public Vector2[] uv;
+        public int[] triangles;
+        public CellMeshData[] cells;
 
-        // Relocate UVs
-        uv[vIndex0] = new Vector2(uv00.x, uv11.y);
-        uv[vIndex1] = new Vector2(uv00.x, uv00.y);
-        uv[vIndex2] = new Vector2(uv11.x, uv00.y);
-        uv[vIndex3] = new Vector2(uv11.x, uv11.y);
+        public HeatMapMeshData(int totalCells)
+        {
+            vertices = new Vector3[totalCells * 4];
+            uv = new Vector2[totalCells * 4];
+            triangles = new int[totalCells * 6];
+            cells = new CellMeshData[totalCells];
+        }
 
-        // Create triangles
-        int tIndex = index * 6;
+        public void ApplyToMesh(Mesh mesh)
+        {
+            AssignVerticesAndUVs();
+            AssignTriangles();
+            UpdateMesh(mesh);
+        }
 
-        triangles[tIndex + 0] = vIndex0;
-        triangles[tIndex + 1] = vIndex3;
-        triangles[tIndex + 2] = vIndex1;
+        private void AssignVerticesAndUVs()
+        {
+            for (int i = 0; i < cells.Length; i++)
+            {
+                int vIndex = i * 4;
 
-        triangles[tIndex + 3] = vIndex1;
-        triangles[tIndex + 4] = vIndex3;
-        triangles[tIndex + 5] = vIndex2;
+                vertices[vIndex] = cells[i].pos + new Vector3(-cells[i].quadSize.x, 0, cells[i].quadSize.y) * 0.5f;
+                vertices[vIndex + 1] = cells[i].pos + new Vector3(-cells[i].quadSize.x, 0, -cells[i].quadSize.y) * 0.5f;
+                vertices[vIndex + 2] = cells[i].pos + new Vector3(cells[i].quadSize.x, 0, -cells[i].quadSize.y) * 0.5f;
+                vertices[vIndex + 3] = cells[i].pos + new Vector3(cells[i].quadSize.x, 0, cells[i].quadSize.y) * 0.5f;
+
+                uv[vIndex] = new Vector2(cells[i].uv00.x, cells[i].uv11.y);
+                uv[vIndex + 1] = new Vector2(cells[i].uv00.x, cells[i].uv00.y);
+                uv[vIndex + 2] = new Vector2(cells[i].uv11.x, cells[i].uv00.y);
+                uv[vIndex + 3] = new Vector2(cells[i].uv11.x, cells[i].uv11.y);
+            }
+        }
+
+        private void AssignTriangles()
+        {
+            for (int i = 0; i < cells.Length; i++)
+            {
+                int vIndex = i * 4;
+                int tIndex = i * 6;
+
+                triangles[tIndex] = vIndex;
+                triangles[tIndex + 1] = vIndex + 3;
+                triangles[tIndex + 2] = vIndex + 1;
+                triangles[tIndex + 3] = vIndex + 1;
+                triangles[tIndex + 4] = vIndex + 3;
+                triangles[tIndex + 5] = vIndex + 2;
+            }
+        }
+
+        private void UpdateMesh(Mesh mesh)
+        {
+            mesh.vertices = vertices;
+            mesh.uv = uv;
+            mesh.triangles = triangles;
+        }
     }
 }

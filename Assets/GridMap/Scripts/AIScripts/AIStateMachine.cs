@@ -1,4 +1,4 @@
-using UnityEngine;//
+using UnityEngine;
 using UnityEngine.AI;
 using System.Collections.Generic;
 
@@ -8,8 +8,9 @@ public class AIStateMachine : MonoBehaviour
     NavMeshAgent myAgent;
     private AIState currentState;
 
-    public List<Transform> movePoints; // List of points to move to
-    private Transform currentMovePoint; // Current move point
+    public List<Transform> movePoints;
+    private Transform currentMovePoint;
+    private DetectClosest detectClosest;
 
     public float minEnemyDistance = 20f;
     public float maxEnemyDistance = 150f;
@@ -18,96 +19,125 @@ public class AIStateMachine : MonoBehaviour
 
     void Start()
     {
-        // Set initial state
         myAgent = GetComponent<NavMeshAgent>();
+        detectClosest = GetComponent<DetectClosest>();
         currentState = AIState.MoveToPoint;
-        currentMovePoint = null;
 
-        // Find and assign objects with the "VictoryPoints" tag to the movePoints list
-        GameObject[] victoryPointObjects = GameObject.FindGameObjectsWithTag("VictoryPoints");
-        foreach (GameObject obj in victoryPointObjects)
+        InitializeMovePoints();
+    }
+
+    void FixedUpdate()
+    {
+        HandleState();
+        CheckStateTransitions();
+    }
+
+    private void InitializeMovePoints()
+    {
+        foreach (GameObject obj in GameObject.FindGameObjectsWithTag("VictoryPoints"))
         {
             movePoints.Add(obj.transform);
         }
     }
 
-    void FixedUpdate()
+    private void HandleState()
     {
-        // Update current state
         switch (currentState)
         {
             case AIState.Idle:
-                // Stop the agent from moving
-                myAgent.ResetPath();
+                StopAgent();
                 break;
-
             case AIState.MoveToPoint:
-                // Check if the current move point is null
-                if (currentMovePoint == null || Vector3.Distance(transform.position, currentMovePoint.position) < minPointDistance)
-                {
-                    // Find a random move point not controlled by any team
-                    currentMovePoint = FindRandomMovePoint();
-
-                    // If a move point is found, move to it
-                    if (currentMovePoint != null)
-                    {
-                        myAgent.SetDestination(currentMovePoint.position);
-                    }
-                    else
-                    {
-                        currentState = AIState.Idle; // No move points available, go back to idle
-                    }
-                }
+                HandleMoveToPoint();
                 break;
-
-
             case AIState.MoveToEnemy:
-                // Check if enemy is within range
-                float distanceToEnemy = Vector3.Distance(transform.position, GetComponent<DetectClosest>().closestEnemy.transform.position);
-                if (distanceToEnemy < maxEnemyDistance && distanceToEnemy > minEnemyDistance)
-                {
-                    // Move towards the enemy
-                    myAgent.SetDestination(GetComponent<DetectClosest>().closestEnemy.transform.position);
-                }
-                else
-                {
-                    // Enemy out of range, switch to MoveToPoint
-                    currentState = AIState.MoveToPoint;
-                }
+                HandleMoveToEnemy();
                 break;
         }
+    }
 
-        // Check conditions for moving to enemy
-        if (currentState != AIState.MoveToEnemy && GetComponent<DetectClosest>().closestEnemy != null)
-        {
-            float distanceToEnemy = Vector3.Distance(transform.position, GetComponent<DetectClosest>().closestEnemy.transform.position);
-            if (distanceToEnemy < maxEnemyDistance && distanceToEnemy > minEnemyDistance)
-            {
-                // Change state to MoveToEnemy
-                ChangeState(AIState.MoveToEnemy);
-            }
-        }
+    private void StopAgent()
+    {
+        myAgent.ResetPath();
+    }
 
-        // Check conditions for moving to point
-        if (currentState != AIState.MoveToPoint && currentMovePoint != null)
+    private void HandleMoveToPoint()
+    {
+        if (currentMovePoint == null || IsAtPosition(currentMovePoint.position, minPointDistance))
         {
-            float distanceToPoint = Vector3.Distance(transform.position, currentMovePoint.position);
-            float distanceToEnemy = Vector3.Distance(transform.position, GetComponent<DetectClosest>().closestEnemy.transform.position);
-            if (distanceToPoint < maxPointDistance && distanceToPoint > minPointDistance && distanceToEnemy > maxEnemyDistance)
+            currentMovePoint = FindRandomMovePoint();
+
+            if (currentMovePoint != null)
             {
-                // Change state to MoveToPoint
-                ChangeState(AIState.MoveToPoint);
+                myAgent.SetDestination(currentMovePoint.position);
             }
-        }
-        if (currentState != AIState.MoveToPoint && currentState != AIState.MoveToEnemy)
-        {
-            float distanceToPoint = Vector3.Distance(transform.position, currentMovePoint.position);
-            float distanceToEnemy = Vector3.Distance(transform.position, GetComponent<DetectClosest>().closestEnemy.transform.position);
-            if (distanceToPoint <= minPointDistance ||distanceToEnemy <= minEnemyDistance)
+            else
             {
                 ChangeState(AIState.Idle);
             }
         }
+    }
+
+    private void HandleMoveToEnemy()
+    {
+        Transform enemy = detectClosest.closestEnemy?.transform;
+        if (enemy != null)
+        {
+            float distanceToEnemy = Vector3.Distance(transform.position, enemy.position);
+            if (distanceToEnemy <= maxEnemyDistance && distanceToEnemy > minEnemyDistance)
+            {
+                myAgent.SetDestination(enemy.position);
+            }
+            else
+            {
+                ChangeState(AIState.MoveToPoint);
+            }
+        }
+        else
+        {
+            ChangeState(AIState.MoveToPoint);
+        }
+    }
+
+    private void CheckStateTransitions()
+    {
+        if (currentState != AIState.MoveToEnemy && ShouldMoveToEnemy())
+        {
+            ChangeState(AIState.MoveToEnemy);
+        }
+        else if (currentState != AIState.MoveToPoint && ShouldMoveToPoint())
+        {
+            ChangeState(AIState.MoveToPoint);
+        }
+        else if (ShouldIdle())
+        {
+            ChangeState(AIState.Idle);
+        }
+    }
+
+    private bool ShouldMoveToEnemy()
+    {
+        if (detectClosest.closestEnemy != null)
+        {
+            float distanceToEnemy = Vector3.Distance(transform.position, detectClosest.closestEnemy.transform.position);
+            return distanceToEnemy < maxEnemyDistance && distanceToEnemy > minEnemyDistance;
+        }
+        return false;
+    }
+
+    private bool ShouldMoveToPoint()
+    {
+        return currentMovePoint != null &&
+               IsInRange(currentMovePoint.position, minPointDistance, maxPointDistance) &&
+               (detectClosest.closestEnemy == null ||
+                Vector3.Distance(transform.position, detectClosest.closestEnemy.transform.position) > maxEnemyDistance);
+    }
+
+    private bool ShouldIdle()
+    {
+        return (currentMovePoint != null && IsAtPosition(currentMovePoint.position, minPointDistance)) ||
+               (detectClosest.closestEnemy != null &&
+                Vector3.Distance(transform.position, detectClosest.closestEnemy.transform.position) <= minEnemyDistance);
     }
 
     public void ChangeState(AIState newState)
@@ -115,58 +145,21 @@ public class AIStateMachine : MonoBehaviour
         currentState = newState;
     }
 
-    // Method to find the closest move point that is not taken by any team
-    private Transform FindClosestMovePoint()
+    private bool IsAtPosition(Vector3 position, float minDistance)
     {
-        Transform closestPoint = null;
-        float closestDistance = Mathf.Infinity;
-        int indexOfClosestPoint = -1;
-
-        for (int i = 0; i < movePoints.Count; i++)
-        {
-            Transform point = movePoints[i];
-            ControlArea controlArea = point.GetComponent<ControlArea>();
-
-            if (controlArea == null || (!controlArea.team1Taken && !controlArea.team2Taken))
-            {
-                float distance = Vector3.Distance(transform.position, point.position);
-                if (distance < closestDistance)
-                {
-                    closestDistance = distance;
-                    closestPoint = point;
-                    indexOfClosestPoint = i;
-                }
-            }
-        }
-
-        // Remove the closest point if it's found and taken
-        if (closestPoint != null && (closestPoint.GetComponent<ControlArea>()?.team1Taken ?? false) || (closestPoint.GetComponent<ControlArea>()?.team2Taken ?? false))
-        {
-            movePoints.RemoveAt(indexOfClosestPoint);
-        }
-
-        return closestPoint;
+        return Vector3.Distance(transform.position, position) < minDistance;
     }
 
-    // Public method to move to a specific point
-    public void MoveToPoint(Vector3 point)
+    private bool IsInRange(Vector3 position, float minDistance, float maxDistance)
     {
-        // Move towards the specified point
-        myAgent.SetDestination(point);
+        float distance = Vector3.Distance(transform.position, position);
+        return distance >= minDistance && distance <= maxDistance;
     }
 
-    // Public method to move towards an enemy
-    public void MoveToEnemy(Transform enemyTransform)
-    {
-        // Move towards the enemy
-        myAgent.SetDestination(enemyTransform.position);
-    }
-    // Method to find a random move point that is not taken by any team
     private Transform FindRandomMovePoint()
     {
         List<Transform> availablePoints = new List<Transform>();
 
-        // Filter out points controlled by any team
         foreach (Transform point in movePoints)
         {
             ControlArea controlArea = point.GetComponent<ControlArea>();
@@ -176,14 +169,27 @@ public class AIStateMachine : MonoBehaviour
             }
         }
 
-        // If there are available points, select a random one
         if (availablePoints.Count > 0)
         {
             int randomIndex = Random.Range(0, availablePoints.Count);
             return availablePoints[randomIndex];
         }
 
-        return null; // No available points
+        return null;
     }
 
+    // Public method to move to a specific point
+    public void MoveToPoint(Vector3 point)
+    {
+        currentMovePoint = null;  // Clear current target to reset movement
+        ChangeState(AIState.MoveToPoint);
+        myAgent.SetDestination(point);
+    }
+
+    // Public method to move towards an enemy
+    public void MoveToEnemy(Transform enemyTransform)
+    {
+        ChangeState(AIState.MoveToEnemy);
+        myAgent.SetDestination(enemyTransform.position);
+    }
 }

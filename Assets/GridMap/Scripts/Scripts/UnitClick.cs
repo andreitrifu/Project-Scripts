@@ -1,4 +1,4 @@
-using System.Collections;//
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -16,73 +16,76 @@ public class UnitClick : MonoBehaviour
         myCam = Camera.main;
     }
 
-
     void Update()
     {
-        if(Input.GetMouseButton(0))
+        HandleLeftClick();
+        HandleRightClick();
+        HandleMiddleClick();
+        HandleAltKey();
+    }
+
+    private void HandleLeftClick()
+    {
+        if (Input.GetMouseButton(0))
         {
             RaycastHit hit;
-            Ray ray= myCam.ScreenPointToRay(Input.mousePosition);
-
-            if(Physics.Raycast(ray, out hit, Mathf.Infinity, clickable))
-            {//if hit a clickable obj
-                if (hit.collider.CompareTag("Team2")) // Check if the clicked object has the "Team2" tag
+            if (PerformRaycast(clickable, out hit))
+            {
+                if (hit.collider.CompareTag("Team2"))
                 {
                     return; // Skip selection if the object has the "Team2" tag
                 }
-                /* if(Input.GetKey(KeyCode.LeftShift))
-                 {
-                     UnitSelections.Instance.ShiftClickSelect(hit.collider.gameObject);
-                 }
-                 else if (Input.GetKey(KeyCode.LeftControl))
-                 {
-                     UnitSelections.Instance.ControlClickSelect(hit.collider.gameObject);
-                 }
-                 else
-                 {
-                     UnitSelections.Instance.ClickSelect(hit.collider.gameObject);
-                 }       */
-
             }
-            else
+            else if (!Input.GetKey(KeyCode.LeftShift))
             {
-                if (!Input.GetKey(KeyCode.LeftShift))
-                {
-                    UnitSelections.Instance.DeselectAll();
-                }              
+                UnitSelections.Instance.DeselectAll();
             }
-        }else if (Input.GetKeyDown(KeyCode.LeftAlt)) // Added condition for Left Alt key
-    {
-        UnitSelections.Instance.DeselectAll();
+        }
     }
+
+    private void HandleRightClick()
+    {
         if (Input.GetMouseButton(1))
         {
             RaycastHit hit;
-            Ray ray = myCam.ScreenPointToRay(Input.mousePosition);
-
-            if(Physics.Raycast(ray, out hit, Mathf.Infinity, ground))
+            if (PerformRaycast(ground, out hit))
             {
-                groundMarker.transform.position = hit.point;
-                groundMarker.SetActive(false);
-                groundMarker.SetActive(true);
+                ActivateMarker(groundMarker, hit.point);
             }
         }
+    }
+
+    private void HandleMiddleClick()
+    {
         if (Input.GetMouseButton(2))
         {
             RaycastHit hit;
-            Ray ray = myCam.ScreenPointToRay(Input.mousePosition);
-
-            if (Physics.Raycast(ray, out hit, Mathf.Infinity, ground))
+            if (PerformRaycast(ground, out hit))
             {
-                distanceMarker.transform.position = hit.point;
-                distanceMarker.SetActive(false);
-                distanceMarker.SetActive(true);
+                ActivateMarker(distanceMarker, hit.point);
             }
         }
+    }
+
+    private void HandleAltKey()
+    {
         if (Input.GetKeyDown(KeyCode.LeftAlt))
         {
             Debug.Log("Left Alt key pressed");
             UnitSelections.Instance.DeselectAll();
         }
+    }
+
+    private bool PerformRaycast(LayerMask layer, out RaycastHit hit)
+    {
+        Ray ray = myCam.ScreenPointToRay(Input.mousePosition);
+        return Physics.Raycast(ray, out hit, Mathf.Infinity, layer);
+    }
+
+    private void ActivateMarker(GameObject marker, Vector3 position)
+    {
+        marker.transform.position = position;
+        marker.SetActive(false);
+        marker.SetActive(true);
     }
 }
